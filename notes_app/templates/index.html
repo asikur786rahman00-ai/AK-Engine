@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dark Notes</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <nav>
+            <h1>📓 Dark Notes</h1>
+            <div>
+                <span>Welcome, {{ current_user.username }}</span>
+                <a href="{{ url_for('logout') }}" class="btn btn-outline" style="margin-left: 10px;">Logout</a>
+            </div>
+        </nav>
+        {% with messages = get_flashed_messages() %}
+          {% if messages %}
+            {% for message in messages %}
+              <div class="flash">{{ message }}</div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+        <div style="margin-bottom: 2rem; text-align: right;">
+            <a href="{{ url_for('new_note') }}" class="btn btn-primary">+ New Note</a>
+        </div>
+        {% for note in notes %}
+        <div class="card note-item">
+            <div>
+                <h3>{{ note.title }}</h3>
+                <p>{{ note.content[:100] }}{% if note.content|length > 100 %}...{% endif %}</p>
+            </div>
+            <div>
+                <a href="{{ url_for('edit_note', note_id=note.id) }}" class="btn btn-outline">Edit</a>
+                <a href="{{ url_for('delete_note', note_id=note.id) }}" class="btn btn-danger">Delete</a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</body>
+</html>

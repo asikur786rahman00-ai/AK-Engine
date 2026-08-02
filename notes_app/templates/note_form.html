@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ 'Edit' if note else 'New' }} Note - Dark Notes</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container" style="max-width: 600px; margin-top: 50px;">
+        <nav>
+            <h1>📓 Dark Notes</h1>
+            <a href="{{ url_for('index') }}" class="btn btn-outline">Back to Home</a>
+        </nav>
+        <div class="card">
+            <h2>{{ 'Edit Note' if note else 'Create New Note' }}</h2>
+            <form method="POST">
+                <div class="form-group">
+                    <label>Title</label>
+                    <input type="text" name="title" value="{{ note.title if note else '' }}" required>
+                </div>
+                <div class="form-group">
+                    <label>Content</label>
+                    <textarea name="content" rows="10" required>{{ note.content if note else '' }}</textarea>
+                </div>
+                <button type="submit" class="btn btn-primary">Save Note</button>
+            </form>
+        </div>
+    </div>
+</body>
+</html>

@@ -2,17 +2,15 @@ import sqlite3
 
 
 class MemoryStorage:
-    def __init__(self, db_path):
+    def __init__(self, db_path="ak_memory.db"):
         self.conn = sqlite3.connect(db_path)
 
         self.conn.execute("""
         CREATE TABLE IF NOT EXISTS memory (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
             category TEXT,
             key TEXT,
             value TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE(category, key)
+            PRIMARY KEY(category, key)
         )
         """)
 
@@ -29,24 +27,26 @@ class MemoryStorage:
         self.conn.commit()
 
     def load(self, category, key):
-        cur = self.conn.execute(
+        cursor = self.conn.execute(
             """
-            SELECT value
-            FROM memory
+            SELECT value FROM memory
             WHERE category=? AND key=?
             """,
             (category, key),
         )
 
-        row = cur.fetchone()
+        row = cursor.fetchone()
         return row[0] if row else None
 
-    def delete(self, category, key):
-        self.conn.execute(
+    def list_category(self, category):
+        cursor = self.conn.execute(
             """
-            DELETE FROM memory
-            WHERE category=? AND key=?
+            SELECT key, value
+            FROM memory
+            WHERE category=?
+            ORDER BY key
             """,
-            (category, key),
+            (category,),
         )
-        self.conn.commit()
+
+        return cursor.fetchall()
