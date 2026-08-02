@@ -1,5 +1,9 @@
 venv/
 node_modules/
+.git-old/
 __pycache__/
 *.pyc
-.git-old/
+*.db
+generated_project/
+CalculatorApp/
+.env
