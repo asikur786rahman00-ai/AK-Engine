@@ -1,34 +1,40 @@
 from ak_engine.agents.planner_agent import PlannerAgent
 from ak_engine.agents.coding_agent import CodingAgent
 from ak_engine.agents.runner_agent import RunnerAgent
-from ak_engine.providers.gemini import GeminiProvider
-
+from ak_engine.agents.task_queue import TaskQueue
 
 class ManagerAgent:
 
     def __init__(self):
-        provider = GeminiProvider()
         self.planner = PlannerAgent()
-        self.coder = CodingAgent(provider)
+        self.coder = CodingAgent()
         self.runner = RunnerAgent()
+        self.queue = TaskQueue()
 
     def run(self, goal):
-        print(f"[Manager] Goal: {goal}\n")
+
+        print(f"\n[Manager] Goal: {goal}\n")
 
         print("[Planner] Creating plan...\n")
-        plan = self.planner.plan(goal)
 
-        for step in plan:
-            print(step)
+        steps = self.planner.plan(goal)
 
-        print("\n[Manager] Generating project...\n")
+        for step in steps:
+            self.queue.add(step)
 
-        filename = self.coder.generate_python(goal)
+        while True:
 
-        print(f"[Manager] Generated: {filename}")
+            task = self.queue.next()
 
-        print("\n[Manager] Running project...\n")
+            if task is None:
+                break
 
-        result = self.runner.run_python(filename)
+            print(f"\n[Task] {task['task']}")
 
-        print(result)
+            if "code" in task["task"].lower():
+                filename = self.coder.generate_python(goal)
+                print(f"Generated: {filename}")
+
+            self.queue.complete(task)
+
+        print("\n✅ Project workflow completed.")
