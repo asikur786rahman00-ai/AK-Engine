@@ -2,21 +2,13 @@ from ak_engine.agents.terminal_agent import TerminalAgent
 
 agent = TerminalAgent()
 
-commands = [
+tests = [
     "pwd",
     "ls",
-    "python3 --version"
+    "python3 --version",
 ]
 
-for cmd in commands:
-
-    print("=" * 50)
-    print("Running:", cmd)
-
+for cmd in tests:
+    print(f"\n$ {cmd}")
     result = agent.run(cmd)
-
-    print("Success:", result["success"])
-    print(result["stdout"])
-
-    if result["stderr"]:
-        print(result["stderr"])
+    print(result)

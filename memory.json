@@ -1,0 +1,10 @@
+[
+  {
+    "role": "user",
+    "content": "Create calculator"
+  },
+  {
+    "role": "assistant",
+    "content": "Calculator created"
+  }
+]

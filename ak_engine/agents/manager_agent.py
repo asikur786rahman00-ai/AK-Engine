@@ -1,7 +1,8 @@
 from ak_engine.agents.planner_agent import PlannerAgent
 from ak_engine.agents.coding_agent import CodingAgent
 from ak_engine.agents.runner_agent import RunnerAgent
-from ak_engine.agents.task_queue import TaskQueue
+from ak_engine.agents.debugger_agent import DebuggerAgent
+from ak_engine.agents.file_agent import FileAgent
 
 class ManagerAgent:
 
@@ -9,32 +10,44 @@ class ManagerAgent:
         self.planner = PlannerAgent()
         self.coder = CodingAgent()
         self.runner = RunnerAgent()
-        self.queue = TaskQueue()
+        self.debugger = DebuggerAgent()
+        self.files = FileAgent()
 
     def run(self, goal):
 
         print(f"\n[Manager] Goal: {goal}\n")
 
         print("[Planner] Creating plan...\n")
+        plan = self.planner.plan(goal)
 
-        steps = self.planner.plan(goal)
+        for step in plan:
+            print(step)
 
-        for step in steps:
-            self.queue.add(step)
+        print("\n[Manager] Generating project...\n")
 
-        while True:
+        filename = self.coder.generate_python(goal)
 
-            task = self.queue.next()
+        for attempt in range(3):
 
-            if task is None:
-                break
+            print(f"\n===== Attempt {attempt+1} =====")
 
-            print(f"\n[Task] {task['task']}")
+            result = self.runner.run_python(filename)
 
-            if "code" in task["task"].lower():
-                filename = self.coder.generate_python(goal)
-                print(f"Generated: {filename}")
+            if result["success"]:
+                print("\n✅ Project completed successfully.")
+                return
 
-            self.queue.complete(task)
+            print(result["stderr"])
 
-        print("\n✅ Project workflow completed.")
+            code = self.files.read_file(filename)
+
+            fixed = self.debugger.fix_code(
+                code,
+                result["stderr"]
+            )
+
+            self.files.write_file(filename, fixed)
+
+            print("🔧 Code fixed.")
+
+        print("\n❌ Failed after 3 attempts.")

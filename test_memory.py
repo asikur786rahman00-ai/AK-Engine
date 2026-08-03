@@ -1,33 +1,11 @@
-from ak_engine.memory.manager import MemoryManager
+from ak_engine.memory.memory import Memory
 
-memory = MemoryManager()
+memory = Memory()
 
-# Save memories
-memory.remember("user", "name", "AK")
-memory.remember("user", "model", "gpt-oss:120b")
-memory.remember("project", "name", "AK-Engine")
-memory.remember("project", "language", "Python")
+memory.clear()
 
-print("=== Recall ===")
-print(memory.recall("user", "name"))
-print(memory.recall("user", "model"))
+memory.save("user", "Create calculator")
 
-print("\n=== User Memories ===")
-for key, value in memory.list_category("user"):
-    print(f"{key} = {value}")
+memory.save("assistant", "Calculator created")
 
-print("\n=== Project Memories ===")
-for key, value in memory.list_category("project"):
-    print(f"{key} = {value}")
-
-print("\n=== Search: AK ===")
-for category, key, value in memory.search("AK"):
-    print(f"[{category}] {key} = {value}")
-
-print("\n=== Search: Python ===")
-for category, key, value in memory.search("Python"):
-    print(f"[{category}] {key} = {value}")
-
-print("\n=== Search: gpt ===")
-for category, key, value in memory.search("gpt"):
-    print(f"[{category}] {key} = {value}")
+print(memory.load())

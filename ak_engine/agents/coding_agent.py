@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 from ak_engine.providers.universal_provider import UniversalProvider
 
 class CodingAgent:
@@ -6,22 +7,40 @@ class CodingAgent:
     def __init__(self, provider=None):
         self.provider = provider or UniversalProvider()
 
+    def extract_requirements(self, code):
+
+        packages = set()
+
+        for line in code.splitlines():
+
+            line = line.strip()
+
+            if line.startswith("import "):
+                name = line.split()[1].split(".")[0]
+                packages.add(name)
+
+            elif line.startswith("from "):
+                name = line.split()[1].split(".")[0]
+                packages.add(name)
+
+        stdlib = {
+            "os","sys","json","time","math","random",
+            "pathlib","typing","threading","subprocess",
+            "datetime","collections","itertools","functools",
+            "re","shutil","tempfile","logging","asyncio"
+        }
+
+        packages = sorted(
+            p for p in packages
+            if p not in stdlib
+        )
+
+        return "\n".join(packages)
+
     def generate_python(self, task):
 
         prompt = f"""
-You are an expert Python developer.
-
-Generate ONLY complete Python code.
-
-Rules:
-- Return ONLY Python code.
-- No markdown.
-- No explanations.
-- No ``` blocks.
-- Do NOT use input().
-- Do NOT create infinite loops.
-- The program must execute automatically and exit.
-- Use sample values instead of asking the user for input.
+Return ONLY complete Python code.
 
 Task:
 {task}
@@ -43,10 +62,29 @@ Task:
 
         code = code.strip()
 
-        Path("generated_project").mkdir(exist_ok=True)
+        project = Path("generated_project")
+        project.mkdir(exist_ok=True)
 
-        filename = "generated_project/main.py"
+        (project/"main.py").write_text(
+            code,
+            encoding="utf-8"
+        )
 
-        Path(filename).write_text(code, encoding="utf-8")
+        (project/"README.md").write_text(
+            f"# {task}\n",
+            encoding="utf-8"
+        )
 
-        return filename
+        requirements = self.extract_requirements(code)
+
+        (project/"requirements.txt").write_text(
+            requirements,
+            encoding="utf-8"
+        )
+
+        (project/"config.py").write_text(
+            "# Configuration\n",
+            encoding="utf-8"
+        )
+
+        return str(project/"main.py")

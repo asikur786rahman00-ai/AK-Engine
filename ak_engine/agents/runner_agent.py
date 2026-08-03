@@ -2,24 +2,22 @@ import subprocess
 
 class RunnerAgent:
 
-    def run_python(self, filepath, input_data=None, timeout=10):
-
-        print(f"[Runner] Running {filepath}")
+    def run_python(self, filename):
 
         try:
 
             result = subprocess.run(
-                ["python3", str(filepath)],
-                input=input_data,
+                ["python3", filename],
+                input="5\n3\n+\nexit\n",
                 capture_output=True,
                 text=True,
-                timeout=timeout
+                timeout=20
             )
 
             return {
                 "success": result.returncode == 0,
                 "stdout": result.stdout,
-                "stderr": result.stderr,
+                "stderr": result.stderr
             }
 
         except subprocess.TimeoutExpired:
@@ -27,5 +25,13 @@ class RunnerAgent:
             return {
                 "success": False,
                 "stdout": "",
-                "stderr": "Program timed out."
+                "stderr": "Program timed out. It may be waiting for user input or stuck in an infinite loop."
+            }
+
+        except Exception as e:
+
+            return {
+                "success": False,
+                "stdout": "",
+                "stderr": str(e)
             }
