@@ -130,3 +130,83 @@ MIT License
 Made with ❤️ by AK
 
 </p>
+
+---
+
+# 📂 Project Structure
+
+```text
+AK-Engine/
+│
+├── ak_engine/
+│   ├── agents/
+│   │   ├── manager_agent.py
+│   │   ├── planner_agent.py
+│   │   ├── coding_agent.py
+│   │   ├── debugger_agent.py
+│   │   ├── runner_agent.py
+│   │   ├── terminal_agent.py
+│   │   ├── file_agent.py
+│   │   ├── git_agent.py
+│   │   ├── ai_router.py
+│   │   └── tool_router.py
+│   │
+│   ├── providers/
+│   │   ├── groq.py
+│   │   ├── gemini.py
+│   │   ├── openrouter.py
+│   │   └── universal_provider.py
+│   │
+│   └── memory/
+│       └── memory.py
+│
+├── tests/
+├── assets/
+├── README.md
+├── LICENSE
+└── requirements.txt
+```
+
+---
+
+# 🖥 Example
+
+```bash
+$ python3 run_agent.py
+```
+
+```
+Goal:
+Create a Flask Todo API
+
+[Planner] Creating plan...
+
+[Coder] Writing code...
+
+[Runner] Running project...
+
+[Debugger] No errors found.
+
+✅ Project completed successfully.
+```
+
+---
+
+# 🎯 Why AK Engine?
+
+✅ Autonomous Planning
+
+✅ Automatic Code Generation
+
+✅ Automatic Debugging
+
+✅ Automatic Project Execution
+
+✅ Multi-Provider AI Support
+
+✅ Long-Term Memory
+
+✅ Git Integration
+
+✅ Extensible Agent Architecture
+
