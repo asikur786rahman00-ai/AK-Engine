@@ -1,5 +1,7 @@
 # ⚡ AK Engine
-
+<p align="center">
+  <img src="assets/banner.png" alt="AK Engine Banner" width="100%">
+</p>
 > An autonomous AI software engineering framework that can plan, write, debug, run, and manage Python projects using multiple AI providers.
 
 ![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)
