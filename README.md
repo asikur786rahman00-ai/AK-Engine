@@ -210,3 +210,69 @@ Create a Flask Todo API
 
 ✅ Extensible Agent Architecture
 
+
+---
+
+# 🎬 Demo
+
+## Create a Python Calculator
+
+```text
+$ python3 run_agent.py
+
+Goal:
+Create a Python calculator
+
+[Manager] Goal received...
+
+[Planner] Creating execution plan...
+
+[Coder] Writing project...
+
+[Runner] Executing code...
+
+[Debugger] No errors found.
+
+✅ Project completed successfully.
+```
+
+---
+
+# 📸 Screenshots
+
+<p align="center">
+<img src="assets/banner.png" width="100%">
+</p>
+
+---
+
+# 📈 Current Capabilities
+
+| Capability | Status |
+|------------|--------|
+| AI Planning | ✅ |
+| AI Coding | ✅ |
+| AI Debugging | ✅ |
+| AI Runner | ✅ |
+| File Management | ✅ |
+| Terminal Commands | ✅ |
+| Git Integration | ✅ |
+| Long-Term Memory | ✅ |
+| Multi Provider Support | ✅ |
+
+---
+
+# 🌍 Future Vision
+
+AK Engine is evolving toward a fully autonomous software engineer capable of:
+
+- 🧠 Understanding natural language goals
+- 📋 Planning complete software projects
+- 💻 Writing production-ready code
+- 🧪 Testing automatically
+- 🐞 Debugging without human intervention
+- 🔄 Iterating until the project succeeds
+- 🚀 Deploying applications
+
+The long-term goal is an AI engineer that can take an idea and transform it into a working application with minimal human input.
+
