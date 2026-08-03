@@ -1,9 +1,30 @@
-venv/
-node_modules/
-.git-old/
+# Python
 __pycache__/
-*.pyc
-*.db
-generated_project/
-CalculatorApp/
+*.py[cod]
+*.pyo
+*.egg-info/
+
+# Virtual environment
+venv/
 .env
+
+# Database
+*.db
+*.sqlite3
+
+# Memory
+memory.json
+
+# Generated projects
+generated_project/
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
