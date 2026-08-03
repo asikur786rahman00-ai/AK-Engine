@@ -1,18 +1,17 @@
 import os
-from openai import OpenAI
+from groq import Groq
 
-class OpenRouterProvider:
+class GroqProvider:
 
     def __init__(self, model=None):
 
-        self.client = OpenAI(
-            api_key=os.environ["OPENROUTER_API_KEY"],
-            base_url="https://openrouter.ai/api/v1"
+        self.client = Groq(
+            api_key=os.environ["GROQ_API_KEY"]
         )
 
         self.model = model or os.getenv(
-            "OPENROUTER_MODEL",
-            "openai/gpt-oss-120b"
+            "GROQ_MODEL",
+            "llama-3.3-70b-versatile"
         )
 
     def chat(self, message):

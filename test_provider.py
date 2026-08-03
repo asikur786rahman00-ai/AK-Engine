@@ -1,12 +1,7 @@
-import os
-from ak_engine.providers.openrouter import OpenRouterProvider
+from ak_engine.providers.universal_provider import UniversalProvider
 
-provider = OpenRouterProvider(os.environ["OPENROUTER_API_KEY"])
+provider = UniversalProvider()
 
-reply = provider.chat(
-    "deepseek/deepseek-chat-v3-0324",
-    "Reply with exactly: Hello AK, your engine is alive!"
-)
+reply = provider.chat("Reply with exactly: Hermes is alive!")
 
-print("\n=== AI Reply ===")
 print(reply)

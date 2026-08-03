@@ -1,25 +1,52 @@
 from pathlib import Path
+from ak_engine.providers.universal_provider import UniversalProvider
 
 class CodingAgent:
-    def __init__(self, provider):
-        self.provider = provider
 
-    def generate_python(self, prompt, filename="main.py"):
-        code = self.provider.chat(
-            f"""
-You are an expert Python programmer.
+    def __init__(self, provider=None):
+        self.provider = provider or UniversalProvider()
 
-Return ONLY valid Python code.
+    def generate_python(self, task):
+
+        prompt = f"""
+You are an expert Python developer.
+
+Generate ONLY complete Python code.
+
+Rules:
+- Return ONLY Python code.
+- No markdown.
+- No explanations.
+- No ``` blocks.
+- Do NOT use input().
+- Do NOT create infinite loops.
+- The program must execute automatically and exit.
+- Use sample values instead of asking the user for input.
 
 Task:
-{prompt}
+{task}
 """
-        )
 
-        project = Path("generated_project")
-        project.mkdir(exist_ok=True)
+        code = self.provider.chat(
+            prompt,
+            task="coding"
+        ).strip()
 
-        file = project / filename
-        file.write_text(code, encoding="utf-8")
+        if code.startswith("```python"):
+            code = code[9:]
 
-        return file
+        if code.startswith("```"):
+            code = code[3:]
+
+        if code.endswith("```"):
+            code = code[:-3]
+
+        code = code.strip()
+
+        Path("generated_project").mkdir(exist_ok=True)
+
+        filename = "generated_project/main.py"
+
+        Path(filename).write_text(code, encoding="utf-8")
+
+        return filename
