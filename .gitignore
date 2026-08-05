@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+
+# Virtual environment
+venv/
+.env
+
+# Database
+*.db
+*.sqlite3
+
+# Memory
+memory.json
+
+# Generated projects
+generated_project/
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
