@@ -66,14 +66,23 @@ class UniversalProvider:
         if not prompt:
             raise ValueError("prompt cannot be empty")
 
-        details = self.router.route_details(prompt)
+        if task is None:
+            details = self.router.route_details(prompt)
+        else:
+            details = self.router.route_task(task)
 
         model = details["primary"]
         fallback_models = details.get("fallback", [])
 
         print(
-            f"[UniversalProvider] Task: {task}"
+            f"[UniversalProvider] Task: {details['task']}"
         )
+
+        if details.get("resolved_task") != details["task"]:
+            print(
+                f"[UniversalProvider] Resolved task: "
+                f"{details['resolved_task']}"
+            )
 
         print(
             f"[UniversalProvider] Model: {model}"

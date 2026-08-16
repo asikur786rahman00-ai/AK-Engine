@@ -69,6 +69,52 @@ class SmartRouter:
 
         return []
 
+    def route_task(self, task: str) -> dict:
+        """
+        Route an explicit internal task without re-classifying
+        the prompt.
+
+        Used by agents that already know their task type.
+        """
+        if not isinstance(task, str):
+            raise TypeError("task must be a string")
+
+        task = task.strip().lower()
+
+        if not task:
+            task = "general"
+
+        # Internal task aliases.
+        aliases = {
+            "planning": "reasoning",
+            "debugging": "coding",
+            "routing": "reasoning",
+            "testing": "reasoning",
+        }
+
+        resolved_task = aliases.get(task, task)
+
+        config = MODEL_REGISTRY.get(
+            resolved_task,
+            MODEL_REGISTRY["general"],
+        )
+
+        primary = config.get("primary")
+
+        if not primary:
+            raise RuntimeError(
+                f"No primary model configured for task: {resolved_task}"
+            )
+
+        return {
+            "task": task,
+            "resolved_task": resolved_task,
+            "primary": primary,
+            "fallback": list(
+                config.get("fallback", [])
+            ),
+        }
+
     def route_details(self, message: str) -> dict:
         """
         Return complete routing information without
