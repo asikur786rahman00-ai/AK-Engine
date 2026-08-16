@@ -3,6 +3,8 @@ import re
 import shutil
 import tempfile
 from ak_engine.core.context import AgentContext
+from ak_engine.core.execution_state import ExecutionState
+from ak_engine.smart_router import SmartRouter
 
 from ak_engine.agents.planner_agent import PlannerAgent
 from ak_engine.agents.coding_agent import CodingAgent
@@ -27,6 +29,8 @@ class Orchestrator:
     def __init__(self):
 
         self.context = AgentContext()
+        self.state = ExecutionState()
+        self.router = SmartRouter()
 
         self.planner = PlannerAgent()
         self.coder = CodingAgent()
@@ -545,263 +549,506 @@ class Orchestrator:
         return evidence
 
     def execute(self, goal):
+        """
+        Execute one autonomous AK Engine project lifecycle.
+
+        ExecutionState is the canonical lifecycle record for this run.
+        """
 
         print(f"\n🎯 Goal: {goal}\n")
 
+        # ---------------------------------------------------------
+        # INITIALIZE EXECUTION STATE
+        # ---------------------------------------------------------
+
+        self.state = ExecutionState()
+
+        self.state.goal = goal
+
+        route = self.router.route_details(goal)
+
+        self.state.task = route["task"]
+        self.state.set_phase("routing")
+
+        self.context.set("task", self.state.task)
+        self.context.set("routing", route)
+
+        print(
+            f"[Router] Task: {route['task']} "
+            f"-> {route['primary']}"
+        )
+
+        # ---------------------------------------------------------
+        # MEMORY
+        # ---------------------------------------------------------
+
         self.memory.remember("last_goal", goal)
 
-        print("[Research]")
-        research = self.research.research(goal)
-        self.context.set("research", research)
+        # ---------------------------------------------------------
+        # RESEARCH
+        # ---------------------------------------------------------
 
-        print(research)
+        self.state.set_phase("research")
+
+        print("[Research]")
+
+        try:
+            research = self.research.research(goal)
+            self.state.research = research
+            self.context.set("research", research)
+
+            print(research)
+
+        except Exception as exc:
+            self.state.add_error(exc)
+            self.state.fail()
+            print(f"❌ Research failed: {exc}")
+            return self.state.snapshot()
+
+        # ---------------------------------------------------------
+        # LEARNING MEMORY
+        # ---------------------------------------------------------
+
+        self.state.set_phase("memory")
 
         print("\n[Learning Memory]")
-        memories = self.learning.search(goal)
-        memory_text = "\n".join(str(x) for x in memories)
 
-        print(memory_text if memory_text else "No similar projects.")
+        try:
+            memories = self.learning.search(goal)
+            self.state.memories = memories
+
+            memory_text = "\n".join(
+                str(x) for x in memories
+            )
+
+            print(
+                memory_text
+                if memory_text
+                else "No similar projects."
+            )
+
+        except Exception as exc:
+            self.state.add_error(exc)
+            memories = []
+            self.state.memories = []
+            memory_text = ""
+
+            print(f"⚠️ Learning memory unavailable: {exc}")
+
+        # ---------------------------------------------------------
+        # PLANNING
+        # ---------------------------------------------------------
+
+        self.state.set_phase("planning")
 
         print("\n[Planner]")
-        plan = self.planner.plan(goal)
 
-        self.context.set("plan", plan)
+        try:
+            plan = self.planner.plan(goal)
 
-        for step in plan:
-            print(step)
+            self.state.plan = plan
+            self.context.set("plan", plan)
+
+            for step in plan:
+                print(step)
+
+        except Exception as exc:
+            self.state.add_error(exc)
+            self.state.fail()
+            print(f"❌ Planning failed: {exc}")
+            return self.state.snapshot()
+
+        # ---------------------------------------------------------
+        # DEPENDENCY / TOOL ANALYSIS
+        # ---------------------------------------------------------
+
+        self.state.set_phase("dependencies")
 
         print("\n[Tool Agent]")
 
-        packages = self.tool.detect_packages(goal)
+        try:
+            packages = self.tool.detect_packages(goal)
 
-        self.context.set("packages", packages)
+            self.state.packages = packages
+            self.context.set("packages", packages)
 
-        print(packages)
+            print(packages)
 
-        if packages:
-            self.tool.install_many(packages)
+            if packages:
+                self.tool.install_many(packages)
+
+        except Exception as exc:
+            self.state.add_error(exc)
+            self.state.fail()
+            print(f"❌ Dependency stage failed: {exc}")
+            return self.state.snapshot()
+
+        # ---------------------------------------------------------
+        # PROJECT GENERATION
+        # ---------------------------------------------------------
+
+        self.state.set_phase("generation")
 
         print("\n[Project Agent]")
 
-        project = self.project.generate(
-            goal,
-            research,
-            memory_text,
-            "\n".join(packages)
-        )
+        try:
+            project = self.project.generate(
+                goal,
+                research,
+                memory_text,
+                "\n".join(packages),
+            )
 
-        filename = self.project.write_project(project)
+            filename = self.project.write_project(project)
 
-        # Keep execution and transactional healing tied to the
-        # exact project directory produced by ProjectAgent.
-        project_root = str(Path(filename).resolve().parent)
+            project_root = str(
+                Path(filename).resolve().parent
+            )
 
+            self.state.project = project
+            self.state.project_root = project_root
+            self.state.entrypoint = project["entrypoint"]
 
-        print(f"Generated project: {filename}")
+            self.context.set("project", project)
+            self.context.set("project_root", project_root)
 
-        for file in project["files"]:
-            print(f"  ├── {file["path"]}")
+            print(
+                f"Generated project: {filename}"
+            )
+
+            for file in project["files"]:
+                print(
+                    f"  ├── {file['path']}"
+                )
+
+        except Exception as exc:
+            self.state.add_error(exc)
+            self.state.fail()
+            print(f"❌ Project generation failed: {exc}")
+            return self.state.snapshot()
+
+        # ---------------------------------------------------------
+        # EXECUTION / VERIFICATION LOOP
+        # ---------------------------------------------------------
 
         for attempt in range(1, 4):
 
-            print(f"\n========== Attempt {attempt} ==========\n")
+            self.state.set_phase("execution")
+            self.state.attempts = attempt
 
-            code = self.files.read_file(filename)
-
-            print("[Input Agent]")
-
-            sample_input = self.input_agent.generate(
-                goal,
-                code
+            print(
+                f"\n========== Attempt {attempt} ==========\n"
             )
 
-            print(sample_input)
+            try:
+                code = self.files.read_file(filename)
 
-            print("\n[Runner]")
+                print("[Input Agent]")
 
-            # Detect whether the generated test is CLI-based
-            # or expects interactive stdin.
-            lines = [
-                line.strip()
-                for line in sample_input.splitlines()
-                if line.strip()
-            ]
-
-            # Interactive tests often contain numbered menu choices,
-            # prompts, or natural-language note contents. These must
-            # NEVER be treated as shell/CLI arguments.
-            has_prompt_text = any(
-                "enter " in line.lower()
-                or "choose " in line.lower()
-                or "input " in line.lower()
-                for line in lines
-            )
-
-            has_numbered_menu = sum(
-                1 for line in lines
-                if line.strip() in {
-                    "1", "2", "3", "4", "5",
-                    "6", "7", "8", "9", "0"
-                }
-            ) >= 2
-
-            # Only treat input as CLI when it actually looks like
-            # command syntax such as:
-            # create -t "Title" -c "Content"
-            # list
-            # search -k "keyword"
-            cli_commands = {
-                "add", "list", "create", "search",
-                "delete", "complete", "update",
-                "remove", "show", "edit", "quit", "exit"
-            }
-
-            cli_like_lines = [
-                line for line in lines
-                if line.split()
-                and line.split()[0].lower() in cli_commands
-                and (
-                    len(line.split()) == 1
-                    or "-" in line
-                    or "=" in line
+                sample_input = self.input_agent.generate(
+                    goal,
+                    code,
                 )
-            ]
 
-            cli_mode = (
-                bool(lines)
-                and not has_prompt_text
-                and not has_numbered_menu
-                and len(cli_like_lines) >= 1
-            )
+                self.state.sample_input = sample_input
+                self.context.set(
+                    "sample_input",
+                    sample_input,
+                )
 
-            if cli_mode:
-                print("[Runner] Mode: CLI commands")
+                print(sample_input)
 
-                combined_stdout = []
-                combined_stderr = []
-                last_result = None
+                print("\n[Runner]")
 
-                for command in lines:
-                    print(f"[Runner] $ python {filename} {command}")
+                lines = [
+                    line.strip()
+                    for line in sample_input.splitlines()
+                    if line.strip()
+                ]
+
+                has_prompt_text = any(
+                    "enter " in line.lower()
+                    or "choose " in line.lower()
+                    or "input " in line.lower()
+                    for line in lines
+                )
+
+                has_numbered_menu = sum(
+                    1
+                    for line in lines
+                    if line.strip() in {
+                        "1", "2", "3", "4", "5",
+                        "6", "7", "8", "9", "0",
+                    }
+                ) >= 2
+
+                cli_commands = {
+                    "add", "list", "create", "search",
+                    "delete", "complete", "update",
+                    "remove", "show", "edit",
+                    "quit", "exit",
+                }
+
+                cli_like_lines = [
+                    line
+                    for line in lines
+                    if line.split()
+                    and line.split()[0].lower()
+                    in cli_commands
+                    and (
+                        len(line.split()) == 1
+                        or "-" in line
+                        or "=" in line
+                    )
+                ]
+
+                cli_mode = (
+                    bool(lines)
+                    and not has_prompt_text
+                    and not has_numbered_menu
+                    and len(cli_like_lines) >= 1
+                )
+
+                if cli_mode:
+
+                    print(
+                        "[Runner] Mode: CLI commands"
+                    )
+
+                    combined_stdout = []
+                    combined_stderr = []
+                    last_result = None
+
+                    for command in lines:
+
+                        print(
+                            f"[Runner] $ python "
+                            f"{filename} {command}"
+                        )
+
+                        result = self.runner.run_python(
+                            filename,
+                            args=command,
+                        )
+
+                        last_result = result
+
+                        if result["stdout"]:
+                            print(result["stdout"])
+                            combined_stdout.append(
+                                result["stdout"]
+                            )
+
+                        if result["stderr"]:
+                            print(result["stderr"])
+                            combined_stderr.append(
+                                result["stderr"]
+                            )
+
+                    if last_result is None:
+
+                        result = {
+                            "success": False,
+                            "stdout": "",
+                            "stderr": (
+                                "No CLI commands were generated."
+                            ),
+                            "stage": "runner",
+                        }
+
+                    else:
+
+                        result = dict(last_result)
+
+                        result["stdout"] = (
+                            "\n".join(combined_stdout)
+                        )
+
+                        result["stderr"] = (
+                            "\n".join(combined_stderr)
+                        )
+
+                else:
+
+                    print(
+                        "[Runner] Mode: interactive stdin"
+                    )
 
                     result = self.runner.run_python(
                         filename,
-                        args=command
+                        user_input=sample_input,
                     )
 
-                    last_result = result
-
-                    if result["stdout"]:
-                        print(result["stdout"])
-                        combined_stdout.append(result["stdout"])
+                    print(result["stdout"])
 
                     if result["stderr"]:
                         print(result["stderr"])
-                        combined_stderr.append(result["stderr"])
 
-                if last_result is None:
-                    result = {
-                        "success": False,
-                        "stdout": "",
-                        "stderr": "No CLI commands were generated.",
-                        "stage": "runner"
-                    }
-                else:
-                    result = dict(last_result)
-                    result["stdout"] = "\n".join(combined_stdout)
-                    result["stderr"] = "\n".join(combined_stderr)
-
-            else:
-                print("[Runner] Mode: interactive stdin")
-
-                result = self.runner.run_python(
-                    filename,
-                    user_input=sample_input
+                self.state.execution_result = result
+                self.context.set(
+                    "execution_result",
+                    result,
                 )
 
-                print(result["stdout"])
+                # -------------------------------------------------
+                # SUCCESSFUL PROCESS
+                # -------------------------------------------------
 
-                if result["stderr"]:
+                if result["success"]:
+
+                    print(result["stdout"])
+
+                    evidence = self._verify_runtime(
+                        goal,
+                        sample_input,
+                        result,
+                    )
+
+                    self.state.verification = evidence
+
+                    if evidence is not None:
+
+                        if evidence["passed"]:
+
+                            self.state.validation_passed = True
+                            self.state.succeed()
+
+                            self.learning.remember(
+                                goal,
+                                packages,
+                                True,
+                            )
+
+                            print(
+                                "🔥 Execution completed successfully."
+                            )
+
+                            return self.state.snapshot()
+
+                        print(
+                            "❌ Deterministic verification failed."
+                        )
+
+                        result["verification"] = evidence
+
+                    else:
+
+                        print("\n[Validator]")
+
+                        valid = self.validator.validate(
+                            goal,
+                            code,
+                            result["stdout"],
+                        )
+
+                        self.state.validation_passed = valid
+
+                        if valid:
+
+                            print(
+                                "✅ Goal validated successfully."
+                            )
+
+                            self.state.succeed()
+
+                            self.learning.remember(
+                                goal,
+                                packages,
+                                True,
+                            )
+
+                            return self.state.snapshot()
+
+                        print(
+                            "❌ Validator rejected project."
+                        )
+
+                else:
+
                     print(result["stderr"])
 
-            if result["success"]:
+                # -------------------------------------------------
+                # AUTONOMOUS HEALING
+                # -------------------------------------------------
 
-                print(result["stdout"])
+                self.state.set_phase("healing")
 
-                evidence = self._verify_runtime(
-                    goal,
-                    sample_input,
-                    result
+                print("\n[Project Healing]")
+
+                healed_result = self._heal_project(
+                    goal=goal,
+                    filename=filename,
+                    sample_input=sample_input,
+                    result=result,
+                    packages=packages,
+                    max_attempts=2,
+                    project_root=project_root,
                 )
 
-                if evidence is not None:
+                if healed_result is not None:
 
-                    if evidence["passed"]:
+                    self.state.execution_result = healed_result
 
-                        print("✅ Deterministic verification passed.")
-
-                        self.learning.remember(
-                            goal,
-                            packages,
-                            True
-                        )
-
-                        return
-
-                    print("❌ Deterministic verification failed.")
-
-                    result["verification"] = evidence
-
-                else:
-
-                    print("\n[Validator]")
-
-                    if self.validator.validate(
-                        goal,
-                        code,
-                        result["stdout"]
+                    if healed_result.get(
+                        "verification"
                     ):
-
-                        print("✅ Goal validated successfully.")
-
-                        self.learning.remember(
-                            goal,
-                            packages,
-                            True
+                        self.state.verification = (
+                            healed_result["verification"]
                         )
 
-                        return
+                    self.state.add_repair({
+                        "attempt": attempt,
+                        "status": "successful",
+                    })
 
-                    print("❌ Validator rejected project.")
+                    self.state.validation_passed = True
+                    self.state.succeed()
 
-            else:
+                    print(
+                        "🔥 Project healed successfully."
+                    )
 
-                print(result["stderr"])
+                    return self.state.snapshot()
 
-            print("\n[Project Healing]")
+                print(
+                    "❌ Project-level healing failed."
+                )
 
-            healed_result = self._heal_project(
-                goal=goal,
-                filename=filename,
-                sample_input=sample_input,
-                result=result,
-                packages=packages,
-                max_attempts=2,
-                project_root=project_root,
-            )
+                print(
+                    "↩️ No unverified repair was kept."
+                )
 
-            if healed_result is not None:
-                print("🔥 Project healed successfully.")
-                return
+                self.state.add_error(
+                    f"Execution attempt {attempt} failed."
+                )
 
-            print("❌ Project-level healing failed.")
-            print("↩️ No unverified repair was kept.")
-            break
+                break
+
+            except Exception as exc:
+
+                self.state.add_error(exc)
+
+                print(
+                    f"❌ Execution attempt {attempt} "
+                    f"raised an exception: {exc}"
+                )
+
+                break
+
+        # ---------------------------------------------------------
+        # FINAL FAILURE
+        # ---------------------------------------------------------
+
+        self.state.fail()
 
         self.learning.remember(
             goal,
             packages,
-            False
+            False,
         )
 
-        print("\n❌ Failed after 3 repair attempts.")
+        print(
+            "\n❌ AK Engine execution failed."
+        )
+
+        return self.state.snapshot()
